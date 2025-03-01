@@ -14,7 +14,7 @@ namespace Porter_Phillips_Wedding_Gallery.Controllers
         {
             private readonly string _imageFolder = "wwwroot/wedding-images/";
             private readonly string _thumbnailFolder = "wwwroot/wedding-images/thumbnails/";
-            private const int ImagesPerPage = 15;
+            private const int ImagesPerPage = 25;
             private const int ThumbnailWidth = 300; // Adjust thumbnail size for better performance
 
             [HttpGet]
