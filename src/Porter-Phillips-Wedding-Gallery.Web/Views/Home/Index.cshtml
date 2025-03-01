@@ -95,16 +95,25 @@
     });
 
 
-    document.getElementById('modalBody').addEventListener('touchend', (e) => {
-        touchEndX = e.changedTouches[0].screenX;
-        if (touchStartX - touchEndX > 50) nextImage();
-        if (touchStartX - touchEndX < -50) prevImage();
-    });
-
     document.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowRight') nextImage();
         if (e.key === 'ArrowLeft') prevImage();
     });
 
-    document.addEventListener('DOMContentLoaded', loadImages);
+    document.addEventListener('DOMContentLoaded', () => {
+        loadImages();
+
+        const modalBody = document.getElementById('modalBody');
+        if (modalBody) {
+            modalBody.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+            });
+
+            modalBody.addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                if (touchStartX - touchEndX > 50) nextImage();
+                if (touchStartX - touchEndX < -50) prevImage();
+            });
+        }
+    });
 </script>
