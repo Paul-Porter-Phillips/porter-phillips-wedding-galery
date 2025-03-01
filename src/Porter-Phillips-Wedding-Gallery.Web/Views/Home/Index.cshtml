@@ -50,7 +50,7 @@
                 const imageGallery = document.getElementById('imageGallery');
                 response.data.forEach((image, index) => {
                     let col = document.createElement('div');
-                    col.className = 'col-md-3 mb-4';
+                    col.className = 'col-md-2 mb-4';
                     col.setAttribute('data-bs-toggle', 'modal');
                     col.setAttribute('data-bs-target', '#imageModal');
                     col.setAttribute('onclick', `setModalImage(${images.length - response.data.length + index})`);
