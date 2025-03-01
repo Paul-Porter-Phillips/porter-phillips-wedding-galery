@@ -1,0 +1,96 @@
+﻿<div class="container py-5">
+    <div class="hero-header">
+        <h1>The Porter-Phillips Wedding</h1>
+        <h2>10th August 2024</h2>
+        <p>To our wonderful family and friends, thank you for being part of our special day. Your love and support made it truly unforgettable, and we cherish each and every one of you. Enjoy reliving these memories with us!</p>
+    </div>
+    <div class="row gallery" id="imageGallery">
+        <!-- Images will be loaded dynamically -->
+    </div>
+    <div id="loadingSpinner" class="loading-spinner">Loading more images...</div>
+</div>
+
+<!-- Fullscreen Modal -->
+<div class="modal fade modal-fullscreen" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header">
+                <a id="downloadLink" class="download-btn" download>Download</a>
+                <button type="button" class="btn-close btn-light" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <button class="nav-button nav-left" onclick="prevImage()">&#9664;</button>
+                <img id="modalImage" class="modal-img" src="" alt="Large Wedding Photo">
+                <button class="nav-button nav-right" onclick="nextImage()">&#9654;</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    let images = [];
+    let currentIndex = 0;
+    let page = 1;
+    let loading = false;
+    let allLoaded = false;
+
+    function loadImages() {
+        if (loading || allLoaded) return;
+        loading = true;
+        document.getElementById('loadingSpinner').style.display = 'block';
+
+        axios.get(`/api/gallery?page=${page}`)
+            .then(response => {
+                if (response.data.length === 0) {
+                    allLoaded = true;
+                    document.getElementById('loadingSpinner').style.display = 'none';
+                    return;
+                }
+                response.data.forEach(image => images.push(image.full));
+
+                const imageGallery = document.getElementById('imageGallery');
+                response.data.forEach((image, index) => {
+                    let col = document.createElement('div');
+                    col.className = 'col-md-4 mb-4';
+                    col.setAttribute('data-bs-toggle', 'modal');
+                    col.setAttribute('data-bs-target', '#imageModal');
+                    col.setAttribute('onclick', `setModalImage(${images.length - response.data.length + index})`);
+                    col.innerHTML = `<img src="${image.thumbnail}" class="img-fluid" alt="Wedding Photo">`;
+                    imageGallery.appendChild(col);
+                });
+                page++;
+                loading = false;
+                document.getElementById('loadingSpinner').style.display = 'none';
+            });
+    }
+
+    function setModalImage(index) {
+        currentIndex = index;
+        document.getElementById('modalImage').src = images[currentIndex];
+        document.getElementById('downloadLink').href = images[currentIndex];
+    }
+
+    function nextImage() {
+        if (currentIndex < images.length - 1) {
+            setModalImage(currentIndex + 1);
+        }
+    }
+
+    function prevImage() {
+        if (currentIndex > 0) {
+            setModalImage(currentIndex - 1);
+        }
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight') nextImage();
+        if (e.key === 'ArrowLeft') prevImage();
+    });
+
+    window.addEventListener('scroll', () => {
+        if ((window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 200)) {
+            loadImages();
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', loadImages);
+</script>
