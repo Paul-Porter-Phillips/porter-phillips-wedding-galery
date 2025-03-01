@@ -1,0 +1,267 @@
+﻿name: "ppw - Website - Build and Deploy"
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  generate-version:
+    name: Generate Version Number
+    runs-on: [self-hosted, Linux]
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Generate Version Number
+        id: version
+        run: |
+          YEAR=$(date +%Y)
+          DAY_OF_YEAR=$(date +%j)
+          SECONDS_SINCE_MIDNIGHT=$(( $(date +%s) - $(date -d 'today 00:00:00' +%s) ))
+          VERSION="$YEAR.$DAY_OF_YEAR.$((SECONDS_SINCE_MIDNIGHT / 2))"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        shell: bash
+
+  checkout:
+    name: Checkout Repository
+    runs-on: [self-hosted, Linux]
+    needs: generate-version
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+  build-source:
+    name: Build Source Code
+    runs-on: [self-hosted, Linux]
+    needs: [generate-version, checkout]
+    env:
+      VERSION: ${{ needs.generate-version.outputs.version }}
+
+    steps:
+      - name: Export Version Number
+        run: echo "VERSION=${{ env.VERSION }}" >> $GITHUB_ENV
+        shell: bash    
+
+      - name: Restore NuGet Packages
+        run: |         
+          #sudo dotnet restore src/${{ vars.SOURCE_SERVICE_NAME }}.Contracts/${{ vars.SOURCE_SERVICE_NAME }}.Contracts.csproj ${{ vars.NUGET_FEEDS }}
+          sudo dotnet restore src/${{ vars.SOURCE_SERVICE_NAME }}.${{ vars.SOURCE_SERVICE_TYPE }}/${{ vars.SOURCE_SERVICE_NAME }}.${{ vars.SOURCE_SERVICE_TYPE }}.csproj ${{ vars.NUGET_FEEDS }}
+        shell: bash
+
+      - name: Build All Projects
+        run: |
+          # sudo dotnet build src/${{ vars.SOURCE_SERVICE_NAME }}.Database/${{ vars.SOURCE_SERVICE_NAME }}.Database.sqlproj --configuration Release -o src/${{ vars.SOURCE_SERVICE_NAME }}.Database/bin/Release
+          #sudo dotnet build src/${{ vars.SOURCE_SERVICE_NAME }}.Contracts/${{ vars.SOURCE_SERVICE_NAME }}.Contracts.csproj --configuration Release ${{ vars.NUGET_FEEDS }}
+          sudo dotnet build src/${{ vars.SOURCE_SERVICE_NAME }}.${{ vars.SOURCE_SERVICE_TYPE }}/${{ vars.SOURCE_SERVICE_NAME }}.${{ vars.SOURCE_SERVICE_TYPE }}.csproj -o src/${{ vars.SOURCE_SERVICE_NAME }}.${{ vars.SOURCE_SERVICE_TYPE }}/build  --configuration Release ${{ vars.NUGET_FEEDS }} -p:AssemblyVersion=${{ env.VERSION }} -p:FileVersion=${{ env.VERSION }}
+        shell: bash
+
+  build-api:
+    name: Build API Docker Image
+    runs-on: [self-hosted, Linux]
+    needs: [generate-version, build-source]
+    env:
+      VERSION: ${{ needs.generate-version.outputs.version }}
+
+    steps:
+      - name: Export Version Number
+        run: echo "VERSION=${{ env.VERSION }}" >> $GITHUB_ENV
+        shell: bash    
+
+      - name: Verify Version Number
+        run: |
+          echo "Building Docker image with version: ${{ env.VERSION }}"
+        shell: bash
+
+      - name: Build Docker Image
+        run: |
+          cd src/${{ vars.SOURCE_SERVICE_NAME }}.${{ vars.SOURCE_SERVICE_TYPE }}
+          sudo docker build -t proget.dev.porterphillips.com/igneous-containers/${{ vars.DOCKER_IMAGE_NAME }}:${{ env.VERSION }} .
+        shell: bash
+
+  # build-database:
+  #     name: Build SQL Project and Publish NuGet
+  #     runs-on: [self-hosted, Linux]
+  #     needs: [generate-version, checkout, build-source]
+  #     env:
+  #       VERSION: ${{ needs.generate-version.outputs.version }}
+
+  #     steps:
+  #       - name: Export Version Number
+  #         run: echo "VERSION=${{ needs.generate-version.outputs.version }}" >> $GITHUB_ENV
+  #         shell: bash
+
+  #       - name: Package DACPAC as NuGet
+  #         run: |
+  #           cd src/${{ vars.SOURCE_SERVICE_NAME }}.Database
+  #           sudo dotnet pack -c Release -o nuget_package --no-build -p:PackageVersion=${{ env.VERSION }}
+  #         shell: bash
+
+  #       - name: Find DACPAC
+  #         id: find_dacpac
+  #         run: |
+  #           DACPAC_PATH=$(find src/${{ vars.SOURCE_SERVICE_NAME }}.Database/bin/Release -name "*.dacpac" | head -n 1)
+  #           echo "DACPAC_PATH=$DACPAC_PATH" >> $GITHUB_ENV
+  #         shell: bash
+        
+  #       - name: Upload DACPAC Artifact
+  #         uses: actions/upload-artifact@v4
+  #         with:
+  #           name: dacpac-artifact
+  #           path: ${{ env.DACPAC_PATH }}
+
+  #       - name: Publish to ProGet
+  #         run: |
+  #           cd src/${{ vars.SOURCE_SERVICE_NAME }}.Database/nuget_package
+  #           sudo dotnet nuget push "*.nupkg" --source "http://proget.dev.porterphillips.com/nuget/databases/v3/index.json"
+  #         shell: bash
+        
+  push-api-to-docker:
+    name: Push API Docker Image
+    runs-on: [self-hosted, Linux]
+    needs: [generate-version, build-api]
+    env:
+      VERSION: ${{ needs.generate-version.outputs.version }}
+    steps:
+      - name: Push Docker Image
+        run: |
+          sudo docker push proget.dev.porterphillips.com/igneous-containers/${{ vars.DOCKER_IMAGE_NAME }}:${{ env.VERSION }}
+        shell: bash
+
+  depoly-api:
+    name: Deploy API Docker Image
+    runs-on: [self-hosted, Linux]
+    needs: [generate-version,  push-api-to-docker]
+    environment: dev
+    env:
+      name: dev
+      VERSION: ${{ needs.generate-version.outputs.version }}
+    steps:
+     - name: Push Docker Image
+       run: |           
+            # Stop and remove the existing container (if it exists)
+            sudo docker ps -a --filter "name=${{ vars.ENVIRONMENT }}${{ vars.DOCKER_SERVICE_NAME }}" --format "{{.Names}}" | grep -q "^${{ vars.ENVIRONMENT }}${{ vars.DOCKER_SERVICE_NAME }}$" && \
+            sudo docker stop ${{ vars.ENVIRONMENT }}${{ vars.DOCKER_SERVICE_NAME }} && \
+            sudo docker rm ${{ vars.ENVIRONMENT }}${{ vars.DOCKER_SERVICE_NAME }}
+
+            # Run the new container
+            sudo docker run -d -p ${{ vars.DOCKER_PORT }}:80 \
+            -v "/assets/pp-wedding/High Resolution Wedding Pictures:/wwwroot/wedding-images"
+            --restart=always \
+            --name ${{ vars.ENVIRONMENT }}${{ vars.DOCKER_SERVICE_NAME }} \
+            --network ${{ vars.ENVIRONMENT }}${{ vars.DOCKER_NETWORK }} \
+            proget.dev.porterphillips.com/igneous-containers/${{ vars.DOCKER_IMAGE_NAME }}:${{ env.VERSION }}
+
+       shell: bash
+
+  # publish-contracts:
+  #   name: Publish Contracts
+  #   runs-on: [self-hosted, Linux]
+  #   needs: [generate-version, build-source]
+  #   env:
+  #       VERSION: ${{ needs.generate-version.outputs.version }}
+  #   steps:
+      
+  #     - name: Package as NuGet
+  #       run: |
+  #         cd src
+  #         PACKAGE_ID="${{ vars.SOURCE_SERVICE_NAME }}.Contracts"
+  #         PACKAGE_VERSION="${{ env.VERSION }}"
+  #         sudo dotnet pack ${{ vars.SOURCE_SERVICE_NAME }}.Contracts/${{ vars.SOURCE_SERVICE_NAME }}.Contracts.csproj -c Release -o nuget_package --no-build -p:PackageVersion=$PACKAGE_VERSION -p:PackageId=$PACKAGE_ID
+  #       shell: bash
+
+  #     - name: Publish to NuGet Feed
+  #       run: |
+  #         cd src/nuget_package
+  #         sudo dotnet nuget push "*.nupkg" --source "https://proget.dev.porterphillips.com/nuget/contracts/v3/index.json" --api-key ${{ secrets.PROGET_API_KEY }}
+  #       shell: bash
+
+  # deploy-db-dev:
+  #       name: Deploy DACPAC to Dev
+  #       runs-on: [self-hosted, Linux]
+  #       needs: build-database
+  #       environment: dev    
+  #       steps:
+  #         - name: Download DACPAC Artifact
+  #           uses: actions/download-artifact@v4
+  #           with:
+  #             name: dacpac-artifact
+  #             path: ./dacpac
+    
+  #         - name: Deploy DACPAC to Dev
+  #           run: |
+  #             cd dacpac
+  #             sudo sqlpackage /Action:Publish \
+  #               /SourceFile:${{ vars.SOURCE_SERVICE_NAME }}.Database.dacpac \
+  #               /TargetConnectionString:"Server=${{ vars.DB_SERVER }};Database=${{ vars.DB_NAME }};User Id=${{ secrets.DB_USER }};Password=${{ secrets.DB_PASSWORD }};Encrypt=False;TrustServerCertificate=${{ env.TRUST_SQL_CERT }};Connection Timeout=30;" \
+  #               /p:DropObjectsNotInSource=False \
+  #               /p:BlockOnPossibleDataLoss=False
+  #           shell: bash
+
+  
+  tag-branch:
+    name: Tag Branch
+    runs-on: [self-hosted, Linux]
+    needs: [generate-version, build-api, push-api-to-docker, depoly-api]
+    env:
+        VERSION: ${{ needs.generate-version.outputs.version }}
+    steps:
+
+      - name: Cleanup Workspace
+        run: |
+            sudo git clean -ffdx
+        shell: bash
+      
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Git
+        run: |
+          sudo git config user.name "github-actions"
+          sudo git config user.email "github-actions@porterphillips.com"
+      
+      - name: Create and Push Tag
+        run: |
+          TAG_NAME="${{ env.VERSION }}"
+          sudo git tag $TAG_NAME
+          sudo git push origin $TAG_NAME
+  
+          
+  clean:
+    name: Cleanup
+    runs-on: [self-hosted, Linux]
+    needs: [tag-branch]
+    if: always()  # Ensures cleanup runs even if other jobs fail
+
+    steps:
+      - name: Cleanup Workspace
+        run: |
+            sudo git clean -ffdx
+        shell: bash
+
+  notify-failure:
+    name: Notify on Failure
+    runs-on: [self-hosted, Linux]
+    needs: [clean]
+    if: failure()  # Run only if any job fails
+    steps:
+      - name: Send Teams Alert
+        run: |
+          curl -X POST -H 'Content-type: application/json' --data '{
+            "@type": "MessageCard",
+            "@context": "http://schema.org/extensions",
+            "themeColor": "ff0000",
+            "summary": "GitHub Actions Build Failure",
+            "sections": [{
+              "activityTitle": "🚨 GitHub Actions Build Failed!",
+              "facts": [
+                { "name": "Repository", "value": "${{ github.repository }}" },
+                { "name": "Branch", "value": "${{ github.ref_name }}" },
+                { "name": "Failed Job", "value": "${{ github.job }}" }
+              ],
+              "markdown": true
+            }]
+          }' ${{ vars.TEAMS_WEBHOOK }}
+        shell: bash
