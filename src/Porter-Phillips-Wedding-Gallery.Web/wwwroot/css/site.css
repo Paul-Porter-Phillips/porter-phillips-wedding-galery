@@ -5,10 +5,12 @@ body {
 }
 
 .gallery img {
-    width: 100%;
-    height: auto;
+    width: 100%; /* Maintain responsiveness */
+    height: 300px; /* Set a consistent height */
+    object-fit: contain; /* Ensure the whole image fits */
     border-radius: 8px;
     transition: transform 0.3s ease;
+    background-color: #f0f8ff; /* Add a background to fill empty spaces */
 }
 
     .gallery img:hover {
