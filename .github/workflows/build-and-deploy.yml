@@ -146,7 +146,7 @@ jobs:
 
             # Run the new container
             sudo docker run -d -p ${{ vars.DOCKER_PORT }}:80 \
-            -v /assets/pp-wedding/'High Resolution Wedding Pictures':/wwwroot/wedding-images/ \
+            --volume "/assets/pp-wedding/'High Resolution Wedding Pictures":"/wwwroot/wedding-images/" \
             --restart=always \
             --name ${{ vars.ENVIRONMENT }}${{ vars.DOCKER_SERVICE_NAME }} \
             --network ${{ vars.ENVIRONMENT }}${{ vars.DOCKER_NETWORK }} \
