@@ -32,6 +32,8 @@
     let page = 1;
     let loading = false;
     let allLoaded = false;
+    let touchStartX = 0;
+    let touchEndX = 0;
 
     function loadImages() {
         if (loading || allLoaded) return;
@@ -90,6 +92,18 @@
         if ((window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 200)) {
             loadImages();
         }
+    });
+
+
+    document.getElementById('modalBody').addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        if (touchStartX - touchEndX > 50) nextImage();
+        if (touchStartX - touchEndX < -50) prevImage();
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight') nextImage();
+        if (e.key === 'ArrowLeft') prevImage();
     });
 
     document.addEventListener('DOMContentLoaded', loadImages);
