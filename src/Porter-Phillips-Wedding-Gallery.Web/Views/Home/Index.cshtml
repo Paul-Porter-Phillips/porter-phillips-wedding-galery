@@ -1,4 +1,4 @@
-﻿<div class="container py-5">
+﻿<div class="container-fluid py-5">
     <div class="hero-header">
         <h1>The Porter-Phillips Wedding</h1>
         <h2>10th August 2024</h2>
@@ -50,7 +50,7 @@
                 const imageGallery = document.getElementById('imageGallery');
                 response.data.forEach((image, index) => {
                     let col = document.createElement('div');
-                    col.className = 'col-md-4 mb-4';
+                    col.className = 'col-md-3 mb-4';
                     col.setAttribute('data-bs-toggle', 'modal');
                     col.setAttribute('data-bs-target', '#imageModal');
                     col.setAttribute('onclick', `setModalImage(${images.length - response.data.length + index})`);
