@@ -67,7 +67,10 @@ namespace Porter_Phillips_Wedding_Gallery.Controllers
                     Size = new Size(width, 0)
                 }));
 
-                image.Save(thumbnailPath, new JpegEncoder());
+                using (var outputStream = new FileStream(thumbnailPath, FileMode.Create))
+                {
+                    image.Save(outputStream, new JpegEncoder());
+                }
             }
         }
     }
