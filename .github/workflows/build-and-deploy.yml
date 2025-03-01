@@ -130,7 +130,7 @@ jobs:
           sudo docker push proget.dev.porterphillips.com/igneous-containers/${{ vars.DOCKER_IMAGE_NAME }}:${{ env.VERSION }}
         shell: bash
 
-  depoly-api:
+  deploy-api:
     name: Deploy API Docker Image
     runs-on: [self-hosted, Linux]
     needs: [generate-version,  push-api-to-docker]
@@ -230,7 +230,7 @@ jobs:
   clean:
     name: Cleanup
     runs-on: [self-hosted, Linux]
-    needs: [tag-branch]
+    needs: [deploy-api]
     if: always()  # Ensures cleanup runs even if other jobs fail
 
     steps:
