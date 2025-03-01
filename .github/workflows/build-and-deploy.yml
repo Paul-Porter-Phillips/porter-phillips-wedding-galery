@@ -199,32 +199,32 @@ jobs:
   #           shell: bash
 
   
-  tag-branch:
-    name: Tag Branch
-    runs-on: [self-hosted, Linux]
-    needs: [generate-version, build-api, push-api-to-docker, depoly-api]
-    env:
-        VERSION: ${{ needs.generate-version.outputs.version }}
-    steps:
+  # tag-branch:
+  #   name: Tag Branch
+  #   runs-on: [self-hosted, Linux]
+  #   needs: [generate-version, build-api, push-api-to-docker, depoly-api]
+  #   env:
+  #       VERSION: ${{ needs.generate-version.outputs.version }}
+  #   steps:
 
-      - name: Cleanup Workspace
-        run: |
-            sudo git clean -ffdx
-        shell: bash
+  #     - name: Cleanup Workspace
+  #       run: |
+  #           sudo git clean -ffdx
+  #       shell: bash
       
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v4
       
-      - name: Set up Git
-        run: |
-          sudo git config user.name "github-actions"
-          sudo git config user.email "github-actions@porterphillips.com"
+  #     - name: Set up Git
+  #       run: |
+  #         sudo git config user.name "github-actions"
+  #         sudo git config user.email "github-actions@porterphillips.com"
       
-      - name: Create and Push Tag
-        run: |
-          TAG_NAME="${{ env.VERSION }}"
-          sudo git tag $TAG_NAME
-          sudo git push origin $TAG_NAME
+  #     - name: Create and Push Tag
+  #       run: |
+  #         TAG_NAME="${{ env.VERSION }}"
+  #         sudo git tag $TAG_NAME
+  #         sudo git push origin $TAG_NAME
   
           
   clean:
